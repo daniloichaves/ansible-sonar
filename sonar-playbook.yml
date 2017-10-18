@@ -1,8 +1,8 @@
 ---
 # ansible-playbook -i "511de7277321," sonar-playbook.yml -vvv
-- hosts: 511de7277321
-# - hosts: sonar
-  connection: docker
+# - hosts: 511de7277321
+- hosts: daniel-host
+  # connection: docker
   vars:
     env:
       NAME_USER_TESTE: "Danilo ischiavolini Chaves"
