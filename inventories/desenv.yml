@@ -1,0 +1,15 @@
+---
+tier1:
+    location1:
+        - server1
+        - server2
+    location2:
+        - server3
+        - server4
+tier2:
+    location1:
+        - server5
+        - server6
+    location2:
+        - server7
+        - server8
