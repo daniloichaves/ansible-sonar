@@ -1,0 +1,140 @@
+---
+# ansible-playbook -i "511de7277321," sonar-playbook.yml -vvv
+- hosts: 511de7277321
+# - hosts: sonar
+  connection: docker
+  vars:
+    env:
+      NAME_USER_TESTE: "Danilo ischiavolini Chaves"
+      http_proxy: "{{http_proxy}}"
+      https_proxy: "{{http_proxy}}"  
+      no_proxy: "10.*;172.*;"  
+    workspace: /root
+
+    # Default to the latest LTS release.
+    sonar_download_url: https://sonarsource.bintray.com/Distribution/sonarqube/sonarqube-6.5.zip
+    sonar_version_directory: sonarqube-6.5
+
+    # Postgres database connection details.
+    sonar_postgres_username: sonar
+    sonar_postgres_password: sonar
+
+    sonar_postgres_host: postgres
+    sonar_postgres_port: "5432"
+    sonar_postgres_database: sonar
+
+    sonar_postgres_allowed_hosts:
+      - "127.0.0.1"
+      - "::1"
+      - "localhost"   
+  environment:
+    # http_proxy: proxyapp.santanderbr.corp:80
+    # https_proxy: proxyapp.santanderbr.corp:80
+    http_proxy: http://172.18.218.60:8080
+    https_proxy: http://172.18.218.60:8080
+
+  tasks:
+  # Nao realizar esta task senao atualiza a versao do Sonar
+  # - name: upgrade all packages
+  #   yum:
+  #     name: '*'
+  #     state: latest
+
+### Configuração user group
+  - name: create "sonar" group
+    group: name=sonar
+
+  - name: create "sonar" user
+    user: name=sonar group=sonar
+
+### instalação Sonar Main
+  - name: Download Sonar.
+    get_url:
+      url: "{{ sonar_download_url }}"
+      dest: "{{ workspace }}/{{ sonar_version_directory }}.zip"
+
+  - name: Install Telnet
+    yum: 
+      name: telnet
+      state: present
+
+  - name: Install Unzip
+    yum: 
+      name: unzip
+      state: present
+
+  - name: install java (JDK-8)
+    yum:
+      name: java-1.8.0
+
+#  - name: correct java version selected
+#    alternatives:
+#      name: java
+#      path: /usr/lib/jvm/java-1.8.0-ibm-1.8.0.4.1-1jpp.2.el7.x86_64/jre/bin/java
+      
+  - name: Unzip Sonar.
+    unarchive:
+      src: "{{ workspace }}/{{ sonar_version_directory }}.zip"
+      dest: /usr/local/
+      copy: no
+      owner: sonar
+      group: sonar
+      creates: /usr/local/sonar/COPYING
+
+  - name: Move Sonar into place.
+    shell: >
+      mv /usr/local/{{ sonar_version_directory }} /usr/local/sonar
+      creates=/usr/local/sonar/COPYING
+
+  # - name: Create a database for Sonar.
+  #   postgresql_db:
+  #     name: "{{ sonar_postgres_database }}"
+  #     state: present
+
+  # - name: Create a sonar user.
+  #   postgresql_user:
+  #     name: "{{ sonar_postgres_username }}"
+  #     host: "{{ item }}"
+  #     priv: "{{ sonar_postgres_database }}.*:ALL"
+  #     password: "{{ sonar_postgres_password }}"
+  #   with_items: sonar_postgres_allowed_hosts      
+
+  - name: Configure SonarQube JDBC settings for Postgres.
+    lineinfile:
+      dest: /usr/local/sonar/conf/sonar.properties
+      regexp: "{{ item.regexp }}"
+      owner: sonar
+      group: sonar
+      line: "{{ item.line }}"
+    notify: restart sonar
+    with_items:
+      - regexp: "^sonar.jdbc.username"
+        line: "sonar.jdbc.username={{ sonar_postgres_username }}"
+      - regexp: "^sonar.jdbc.password"
+        line: "sonar.jdbc.password={{ sonar_postgres_password }}"
+      - regexp: "^sonar.jdbc.url"
+        line: "sonar.jdbc.url=jdbc:postgresql://{{ sonar_postgres_host }}:{{ sonar_postgres_port }}/{{ sonar_postgres_database }}"
+        #line: "sonar.jdbc.url=jdbc:postgresql://{{ sonar_postgres_host }}:{{ sonar_postgres_port }}/{{ sonar_postgres_database }}?useUnicode=true&characterEncoding=utf8&rewriteBatchedStatements=true&useConfigs=maxPerformance"
+
+
+  - name: Add sonar symlinks for service management.
+    file:
+      src: /usr/local/sonar/bin/linux-x86-64/sonar.sh
+      dest: "{{ item }}"
+      state: link
+      group: sonar 
+      owner: sonar
+    with_items:
+      - /usr/bin/sonar
+      - /etc/init.d/sonar
+
+  - name: Ensure Sonar is running and set to start on boot.
+    service: name=sonar state=started enabled=yes
+
+  - name: Make sure Sonar is responding on the configured port.
+    wait_for: port=9000 delay=3 timeout=300
+
+  handlers:
+  - name: restart sonar
+    service: name=sonar state=restarted
+

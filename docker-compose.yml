@@ -1,0 +1,27 @@
+version: '2'
+services:
+  db:
+  #  volumes:
+  #    - ./db_data:/var/lib/postgresql/
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_USER: sonar
+      #PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  sonar:
+    depends_on:
+      - db
+    image: centos:centos6
+    ports:
+      - "9000:9000"
+    restart: always
+  #  environment:
+  #    WORDPRESS_DB_HOST: db:5432
+  #    WORDPRESS_DB_USER: wordpress
+  #    WORDPRESS_DB_PASSWORD: wordpress
+# volumes:
+#     db_data:

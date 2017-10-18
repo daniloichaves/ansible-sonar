@@ -1,0 +1,2 @@
+[sonar]
+sonar1 ansible_host=172.20.151.170 ansible_user=dyonezawa
